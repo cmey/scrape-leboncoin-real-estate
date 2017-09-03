@@ -11,7 +11,7 @@ max_page_number = 2000
 def entries_for_page(page_number):
     URL = URL_template.format(page_number)
     r = requests.get(URL)
-    soup = BeautifulSoup(r.content.decode('utf-8', 'ignore'), 'lxml')
+    soup = BeautifulSoup(r.content.decode('iso-8859-1').encode('utf8'), 'lxml')
 
     page_entries = soup.find_all('section', {'class': 'item_infos'})
     return page_entries
@@ -54,6 +54,7 @@ def main():
             address = rent_info['address']
             print(price, address)
             file_writer.writerow([price, address['city'], address['departement']])
+
 
 if __name__ == '__main__':
     main()
