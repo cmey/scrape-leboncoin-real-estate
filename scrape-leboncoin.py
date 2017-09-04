@@ -1,4 +1,5 @@
 import csv
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 import threading
 
@@ -41,17 +42,23 @@ def extract_address(page_entry):
     return address
 
 
-def get_rent_infos(page_numbers=range(1, max_page_number)):
-    for page_number in page_numbers:
+def get_rent_infos(page_number):
+    page_entries = entries_for_page(page_number)
+    for page_entry in page_entries:
+        try:
+            price = extract_price(page_entry)
+            address = extract_address(page_entry)
+            yield dict(price=price, address=address)
+        except:
+            pass
 
-        page_entries = entries_for_page(page_number)
-        for page_entry in page_entries:
-            try:
-                price = extract_price(page_entry)
-                address = extract_address(page_entry)
-                yield dict(price=price, address=address)
-            except:
-                pass
+
+def scrape_task(page_number):
+    for rent_info in get_rent_infos(page_number):
+        price = rent_info['price']
+        address = rent_info['address']
+        row = [price, address['city'], address['departement']]
+        queue.put(row)
 
 
 def write_task():
@@ -65,29 +72,23 @@ def write_task():
         do_work(file_writer, file, HEADER)
         while True:
             item = queue.get()
+            if item is None:
+                queue.task_done()
+                break
             do_work(file_writer, file, item)
             queue.task_done()
 
 
-def scrape_task(page_numbers):
-    for rent_info in get_rent_infos(page_numbers):
-        price = rent_info['price']
-        address = rent_info['address']
-        row = [price, address['city'], address['departement']]
-        queue.put(row)
-
-
 def main():
-    num_worker_threads = 8
-    num_pages_per_thread = max_page_number // num_worker_threads
-    for i_thread in range(num_worker_threads):
-        page_numbers = range(i_thread*num_pages_per_thread,
-                             (i_thread+1) * num_pages_per_thread)
-        scrape_thread = threading.Thread(target=scrape_task, args=(page_numbers,))
-        scrape_thread.start()
-
     write_thread = threading.Thread(target=write_task)
     write_thread.start()
+
+    num_worker_threads = 8
+    with ThreadPoolExecutor(num_worker_threads) as pool:
+        page_numbers = range(1, max_page_number)
+        pool.map(scrape_task, page_numbers)
+
+    queue.put(None)  # poison pill to end write_task
 
 
 if __name__ == '__main__':
