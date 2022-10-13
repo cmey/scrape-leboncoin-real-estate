@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-URL_template = 'https://www.leboncoin.fr/locations/offres/ile_de_france/occasions/?o={}'
+URL_template = 'https://www.leboncoin.fr/locations/offres/ile_de_france/occasions/p-{}'
 max_page_number = 2000
 
 OUTPUT_CSV_FILE = 'rent.csv'
